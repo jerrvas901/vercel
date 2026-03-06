@@ -61,7 +61,50 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  } catch (error) {
+    console.error("Login API error:", error);
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const errorName =
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      typeof (error as { name?: unknown }).name === "string"
+        ? ((error as { name: string }).name ?? "")
+        : "";
+    const lowerMessage = message.toLowerCase();
+    const lowerName = errorName.toLowerCase();
+    const isDbConnectionError =
+      lowerName.includes("mongo") ||
+      lowerMessage.includes("mongod") ||
+      lowerMessage.includes("querysrv") ||
+      lowerMessage.includes("server selection timed out") ||
+      lowerMessage.includes("etimeout") ||
+      lowerMessage.includes("enotfound") ||
+      lowerMessage.includes("econnrefused") ||
+      lowerMessage.includes("ssl routines") ||
+      lowerMessage.includes("tlsv1 alert internal error") ||
+      message.includes("MONGODB_URI is missing");
+
+    if (isDbConnectionError) {
+      return NextResponse.json(
+        {
+          error: "Database connection failed. Check MongoDB URI, DNS, and Atlas IP access.",
+          ...(process.env.NODE_ENV !== "production" && message
+            ? { details: message }
+            : {}),
+        },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "Invalid request payload",
+        ...(process.env.NODE_ENV !== "production" && message
+          ? { details: message }
+          : {}),
+      },
+      { status: 400 },
+    );
   }
 }

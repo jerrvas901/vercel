@@ -21,7 +21,20 @@ function getMongoUri() {
 function getClientPromise() {
   if (!globalForMongo.clientPromise) {
     const mongoUri = getMongoUri();
-    globalForMongo.clientPromise = new MongoClient(mongoUri).connect();
+    const client = new MongoClient(mongoUri, {
+      // Fail fast when Atlas/DNS/TLS is unhealthy instead of waiting ~30s per request.
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 8000,
+      socketTimeoutMS: 20000,
+      // Prefer IPv4 resolution on networks with broken IPv6 routes.
+      family: 4,
+    });
+
+    globalForMongo.clientPromise = client.connect().catch((error) => {
+      // Do not keep a permanently rejected promise; allow the next request to retry.
+      globalForMongo.clientPromise = undefined;
+      throw error;
+    });
   }
 
   return globalForMongo.clientPromise;
