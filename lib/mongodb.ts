@@ -1,13 +1,6 @@
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB || "portfolio";
-
-if (!uri) {
-  throw new Error("Missing MONGODB_URI environment variable");
-}
-
-const mongoUri: string = uri;
 
 type GlobalMongo = {
   clientPromise?: Promise<MongoClient>;
@@ -15,8 +8,19 @@ type GlobalMongo = {
 
 const globalForMongo = globalThis as typeof globalThis & GlobalMongo;
 
+function getMongoUri() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error(
+      "MONGODB_URI is missing. Add it in Vercel Project Settings > Environment Variables.",
+    );
+  }
+  return uri;
+}
+
 function getClientPromise() {
   if (!globalForMongo.clientPromise) {
+    const mongoUri = getMongoUri();
     globalForMongo.clientPromise = new MongoClient(mongoUri).connect();
   }
 
