@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SiteNav from "@/components/site-nav";
 
@@ -55,15 +55,29 @@ export default function HomePage() {
     return "Not signed in";
   }, [user]);
 
-  async function refreshMe() {
-    const res = await fetch("/api/auth/me", { cache: "no-store" });
-    const data = await res.json();
-    setUser(data.user);
+  async function readJsonSafely<T>(res: Response): Promise<T | null> {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return null;
+    }
   }
 
-  useEffect(() => {
-    refreshMe();
+  const refreshMe = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const data = await readJsonSafely<{ user?: User | null }>(res);
+      setUser(data?.user ?? null);
+    } catch {
+      setUser(null);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshMe();
+  }, [refreshMe]);
 
   async function register() {
     setMsg("");
@@ -78,7 +92,7 @@ export default function HomePage() {
           password: rPass,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{ error?: string }>(res);
       if (!res.ok) throw new Error(data?.error || "Registration failed");
       setMsg("Registered successfully. Continue with login.");
       setTab("login");
@@ -101,7 +115,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: lEmail, password: lPass }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{ error?: string }>(res);
       if (!res.ok) throw new Error(data?.error || "Login failed");
       await refreshMe();
       router.push("/dashboard");

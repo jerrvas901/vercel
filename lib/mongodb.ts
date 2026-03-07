@@ -26,8 +26,8 @@ function getClientPromise() {
       serverSelectionTimeoutMS: 8000,
       connectTimeoutMS: 8000,
       socketTimeoutMS: 20000,
-      // Prefer IPv4 resolution on networks with broken IPv6 routes.
-      family: 4,
+      // Allow the driver to choose the best IP family for the current network.
+      // Forcing IPv4 can cause TLS handshake failures on some ISPs/firewalls.
     });
 
     globalForMongo.clientPromise = client.connect().catch((error) => {
